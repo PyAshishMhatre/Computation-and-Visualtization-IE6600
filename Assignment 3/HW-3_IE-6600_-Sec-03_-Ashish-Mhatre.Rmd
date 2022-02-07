@@ -1,0 +1,247 @@
+---
+title: "Assignment 3"
+author: "Ashish Mhatre"
+date: "04/02/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Problem Statement
+
+Perform data analysis and visualization on Wine dataset, Farmer Market dataset and Airline delays dataset using data wrangling techniques.
+
+## Import Libraries
+
+Importing all required modules 
+
+```{r libraries, include=FALSE}
+library(tidyr) #Importing all dependencies
+library(dplyr)
+library(lubridate)
+library(magrittr)
+library(ggplot2)
+library(gridExtra)
+library(stringr)
+
+```
+
+## Task 1
+
+Perform 5 subtask on Wine dataset.
+
+### Subtask 1
+
+Find region in france having the highest average price.
+
+```{r subtask1, echo=FALSE, warning=FALSE}
+wine = read.csv("C:/Users/Ashish Mhatre/Desktop/CVA/Assigments/Assignment 3/wine_data.csv")
+
+wine%>%
+  filter(country == 'France')%>% 
+  select(region_1, price)%>%
+  group_by(region_1)%>% #Group by region
+  summarise_at(vars(price),list(Average_Price = mean))%>% #Take Average of prices
+  drop_na(Average_Price)%>%
+  arrange(desc(Average_Price))%>%
+  slice(1) #Taking the top region
+
+              
+
+```
+
+Montrachet region has the highest average price of 601.1818
+
+### subtask 2
+
+Find average price by designation
+
+```{r subtask2, echo=FALSE, warning=FALSE}
+wine%>%
+  select(designation, price)%>%
+  group_by(designation)%>% #Group by designation
+  summarise_at(vars(price),list(Average_Price = mean))%>% #Take average of prices 
+  drop_na(Average_Price)%>%
+  arrange(desc(Average_Price))
+  
+
+
+```
+
+Following data set view shows the average price by designation
+
+### Subtask 3
+
+Find the variety having the highest average price.
+
+```{r subtask3, echo=FALSE, warning=FALSE}
+
+wine%>%
+  select(variety, price)%>%
+  group_by(variety)%>% #Group by variety
+  summarise_at(vars(price),list(Average_Price = mean))%>% #Take average of prices
+  drop_na(Average_Price)%>%
+  arrange(desc(Average_Price))%>%
+  slice(1)
+  
+
+
+```
+
+Carbernet-Shiraz has the highest price of 150
+
+## Subtask 4
+
+Display top 7 variety by count frequency.
+
+```{r subtask4, echo=FALSE, warning=FALSE}
+
+
+wine%>%
+  select(variety, price)%>%
+  group_by(variety)%>%  #Group by variety
+  summarise( Count = n())%>%  #Count the frequency
+  arrange(desc(Count))%>%
+  slice(1:7) #display top 7
+
+
+
+```
+
+Following dataset shows the top 7 variety by count frequency.
+
+### Subtask 5 
+
+Finding the number of wines which are 20 years old
+
+
+```{r subtask5, echo=FALSE, warning=FALSE}
+
+win_20 <- wine%>%
+  select(designation)%>%
+  filter(str_detect( designation,regex('((20)+(\\s|-)*((Y|years?)|(Y|yr.)))|(20th)') ) == TRUE ) #Set regex pattern to match the 20 year string parts
+
+cat("Count of 20 years old Wine is ", nrow(win_20)) #display the number of rows by nrow
+
+```
+
+There are 84 wines which are 20 year old.
+
+## Task 2
+
+Generate wide table showing number of farmers market by state and month of year.
+
+```{r Task 2, echo=FALSE, warning=FALSE}
+
+fm = read.csv("C:/Users/Ashish Mhatre/Desktop/CVA/Assigments/Assignment 3/fm.csv")
+
+fm$Season1Date <- as.Date(fm$Season1Date,'%m/%d/%y' ) #Convert to Datetime
+
+fm%>%
+  select(State,Season1Date)%>%
+  drop_na(Season1Date)%>% #Drop NA values
+  group_by(State, Months = months(Season1Date))%>% #Group by state first then months
+  summarise( count = n(), .groups='drop')%>% #count the frequency
+  arrange( factor( Months, levels = c('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December')))%>% #Set the order of categorical variable
+  drop_na(count)%>%
+  pivot_wider(names_from = Months, values_from = count)%>% #Pivot wider on Months column
+  replace_na(list(January = 0, February = 0, March = 0, April = 0, May = 0,  June = 0, July = 0, August = 0, September = 0, October = 0, November = 0, December = 0)) #Replace NA with 0 in Months columns
+
+```
+
+We can see the number of farmers market for each month for a particular state in a single row.
+
+## Task 3 
+
+Showing the number of active farmer markets depending on the Updatetime column by month for each city in state of california
+
+```{r task 3, echo=FALSE, warning=FALSE}
+
+ fm$updateTime <- as.Date(fm$updateTime, '%m/%d/%Y' )
+
+fm%>%
+  filter(State == 'California')%>%
+  select(city, updateTime)%>%
+  drop_na(updateTime)%>%
+  group_by(city, Update_month = month(updateTime))%>% #Group by city and Update_Months
+  summarise(Active_Users = n(), .groups='drop')%>%
+  arrange(desc(Active_Users))
+
+
+
+```
+
+Following dataset view provides us with the number of active farmers market for each city of california for each month.
+
+## Task 4 
+
+Plot a bar chart to display the total delay in mins by each carrier
+
+```{r task 4, echo=FALSE, warning=FALSE}
+
+delay = read.csv("C:/Users/Ashish Mhatre/Desktop/CVA/Assigments/Assignment 3/airlines_delay.csv")
+
+delay$year <- as.character(delay$year) # to convert in Categorical data
+
+total_delay <- delay%>%
+               select(carrier,arr_delay)%>%
+               group_by(carrier)%>% #Group by carrier
+               summarise( total_delay = sum(arr_delay, na.rm = TRUE) ) %>%  #Add all the delays 
+               arrange(desc(total_delay))
+               
+
+ggplot(data=total_delay, aes(x=reorder(carrier,total_delay), y=total_delay)) + 
+  geom_bar(stat="identity", alpha = 0.6) + ggtitle("Fig1. Carrier vs Total Delay") + xlab('Carriers') + ylab('Total delay in mins')
+   
+
+```
+
+We can see the distribution of total delays for each carrier where, x-axis represents the carrier name and y-axis represents the total delay in mins.
+
+## Task 4.1
+
+Plot a stacked plot showing the total delay for each year stacked for a particular airline carrier.
+
+```{r task4.1, echo=FALSE, warning=FALSE}
+
+delay_year <- delay%>%
+               select(year,carrier,arr_delay)%>%
+               group_by(carrier,year)%>% #Group by carrier first then year
+               summarise( total_delay = sum(arr_delay, na.rm = TRUE), .groups='drop' )%>% # Count all the sum by year and carrier
+               arrange(desc(total_delay))
+
+join_df <- inner_join(total_delay,delay_year,by = 'carrier') #Perfrom inner join
+
+ggplot(data = join_df, aes(x=reorder(carrier,-total_delay.x), y=total_delay.y, fill= as.factor(year))) +
+      geom_bar(stat="identity") + 
+      scale_fill_brewer(palette = 'Paired')
+ 
+```
+
+The following graph shows carrier vs total delay by year, where x-axis represents the airline carrier and y-axis represent the time delay in mins. each year delay is represented with an different color as a stacked bar.
+
+# Conclusion
+
+1. Performed following subtask :-
+
+a. Montrachet region has the highest average price of 601.1818.
+
+b. Displayed the average price by designation where in designation Clos du Mesnil has the highest average price 1400.00000.	
+
+c. Carbernet-Shiraz variety has the highest price of 150.
+
+d. using group_by and summaries clause displayed data set view for the top 7 variety by count frequency.
+
+e. using str_detect and reg-ex we found out that There are 84 wines which are 20 year old.
+
+2. Generated view to see the number of farmers market for each month for a particular state in a single row using pivot_wider.
+
+3. computed Number of active farmers market for each city of California for each month.where we found that San Francisco
+in the month of July had the most number of active markets that is 8.
+
+4.We can see the distribution of total delays for each carrier where, x-axis represents the carrier name and y-axis represents the total delay in mins. where southwest airlines co. has the highest total delay compared to all airlines, 
+also using (fill=year) argument in ggplot we created a stacked bar graph adding details for total delay by each year.
+
+

@@ -1,0 +1,291 @@
+---
+title: "Assignment 2"
+author: "Ashish Mhatre"
+date: "30/01/2022"
+output: pdf_document
+---
+# Problem Statement 
+
+Perform data analysis on Farmer market data set and NY collision data set and perform grouping, summarizing, cleaning, pivoting, date time conversion etc as per the given task using libraries like tidyverse, dplyr, lubridate and magrittr.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Import Libraries
+
+importing all the required libraries
+
+```{r lib, include=FALSE, warning=FALSE}
+library(dplyr)
+library(magrittr)
+library(tidyr)
+library(lubridate)
+```
+
+## Task 1
+
+Finding the number of farmers market in the state of California city wise.
+
+```{r task1, echo=FALSE}
+fm <- read.csv("C:/Users/Ashish Mhatre/Desktop/CVA/Assigments/Assignment 2/fm.csv")
+
+fm %>%
+  filter(State == 'California', city !='') %>% #Filter State to California
+  group_by(city) %>%                           # Group using city 
+  summarise(Number_of_Markets = n())%>%        #count the number of markets in each city
+  arrange(desc(Number_of_Markets))%>%          #Display in descending order
+  drop_na()                                    #Drop NA values
+
+```
+Calculated the number of farmers market in each city of California state and displayed the information in descending order as per market count. 
+
+## Task 2 
+
+Finding the number of Farmers Market year wise in state of Massachusetts
+
+```{r task2, echo=FALSE}
+
+task2 <- fm %>%
+  select(Season1Date,State) %>%   #Select required columns
+  filter(State == 'Massachusetts')#Filter for Massachsetts
+  
+
+task2$Season1Date = as.Date(task2$Season1Date, "%m/%d/%Y") #Type conversion to Date
+
+task2 %>%
+  group_by(Year = year(Season1Date)) %>%          # Group using city 
+  summarise(Number_of_Farmers_Market  = n()) %>%  # Count the number of markets
+  drop_na()                                       #count the number of markets in each city
+  
+```
+The following dataset view shows the year wise count of markets in state of Massachusetts.
+
+## Task 3
+
+Finding the top 15 states in terms of count of Farmers market.
+
+```{r task3, echo=FALSE}
+
+fm %>%
+  group_by(State) %>%                    # Group using city 
+  summarise(Number_of_Markets = n()) %>% #count the number of markets in each city
+  arrange(desc(Number_of_Markets)) %>%   # Arrnage in descending order
+  slice(1:15)
+
+
+```
+
+Following dataset view shows top 15 states with highest farmer market count in descending order.
+
+## Task 4 
+
+Display in Long format Payment Method, Product Type, and count of Markets accepting the particular combination
+
+```{r task4, echo=FALSE}
+
+task4 <- fm%>%
+         filter(State =="New York")%>%                                  #Filter out the rows only for New York State
+         select(FMID,Credit,WIC,WICcash,SNAP,Organic:WildHarvested)%>%  #Select the required columns
+         na_if("N") %>% #Replace NA for "N" and "-"
+         na_if("-")%>%
+         pivot_longer(!FMID,names_to = c(
+"Payment_system", "Products"), names_pattern = "(Credit|WIC$|WICcash|SNAP)|(.*)", values_to = "response")%>%
+  drop_na(response)  #Pivot_longer excluding column FMID, Match Text pattern for payments in Column Payment_system &   Product in column Products
+        
+
+
+product <-task4%>%
+          select(FMID,Products)%>%
+          drop_na(Products) #Drop NA from Products
+
+payment <-task4%>%
+          select(FMID,Payment_system)%>%
+          drop_na(Payment_system) #Drop NA from Payment
+
+merge(x = payment, y = product, by = 'FMID')%>%  #Join both the views on FMID
+      group_by(Payment_system, Products)%>% #Group using payment and Product
+      summarise(Farmer_Market = n(), .groups = 'drop')%>% #Perform Count function
+      arrange(desc(Payment_system))%>% #Arrange using descending order
+      drop_na() #Drop na values
+```
+
+The following view shows the count of Markets accepting a particular payment for respective product type in a Long Format.
+
+## Task 5 
+
+Split the string in Column Season1Date
+
+```{r task5, echo=FALSE, warning=FALSE}
+
+task5 <- fm%>%
+         select(Season1Date) #Select Season1Date column
+
+task5 <- task5%>%
+  drop_na() %>%
+  separate(Season1Date,c('Startdate','Enddate')," to ") #Using Separate function to break string at " to "
+
+bind_cols(task5,fm)%>% #Bind the two dataframes together
+  head()
+  
+
+
+```
+
+Here we added the two new columns which are StartDate & EndDate 
+
+## Task 6 
+
+Importing dataset
+
+```{r import, include=FALSE}
+ny <- read.csv("C:/Users/Ashish Mhatre/Desktop/CVA/Assigments/Assignment 2/nycollision.csv")
+
+```
+
+### Subtask 1 
+
+Calculate all the statistical parameters for column NUMBER.OF.PEDESTRIANS.INJURED and group by BOROUGH
+
+```{r subtask1, echo=FALSE}
+Fun_mode <- function(x) { #Function for calculating MODE
+  t <- table(x)
+  names(t)[ which.max(t) ]
+}
+
+ny%>%
+  group_by(BOROUGH)%>% #Group by BOROUGH
+summarise(total = sum(NUMBER.OF.PEDESTRIANS.INJURED, na.rm = T),  #Summarise by all the required parameters
+            average = mean(NUMBER.OF.PEDESTRIANS.INJURED, na.rm =T ),
+            minimum = min(NUMBER.OF.PEDESTRIANS.INJURED, na.rm=T),
+            maximum = max(NUMBER.OF.PEDESTRIANS.INJURED, na.rm = T),
+            med = median(NUMBER.OF.PEDESTRIANS.INJURED, na.rm = T),
+            mode = Fun_mode(NUMBER.OF.PEDESTRIANS.INJURED),
+            First_Quan = quantile(NUMBER.OF.PEDESTRIANS.INJURED, probs = .25),
+            Mean = quantile(NUMBER.OF.PEDESTRIANS.INJURED, probs = .5),
+            Third_Quan = quantile(NUMBER.OF.PEDESTRIANS.INJURED, probs = .75))
+```
+
+Following data set view shows the statistical parameter calculated for all the boroughs
+
+### Subtask 2
+
+Display the number of accident by Vechicle Type code and Borough
+
+```{r subtask2, echo=FALSE}
+
+ ny%>%
+  group_by(VEHICLE.TYPE.CODE.1, BOROUGH)%>% #Group by BOROUGH and VECHICLE.TYPE.CODE.1 as Less empty values
+  summarise(Number_of_Accident = n(), .groups = 'drop') %>% #Count the number of accidents
+  filter(VEHICLE.TYPE.CODE.1 !='', BOROUGH !='' )%>% #Filter out blank or empty rows 
+  drop_na()
+
+```
+
+Here we can see all the number of accidents segregated by Borough and Vehicle Type code.
+
+### Subtask 3 
+
+Show all the Contributing Factor for accident by Borough.
+
+```{r subtask3, echo=FALSE}
+
+ny%>%
+  group_by(BOROUGH,CONTRIBUTING.FACTOR.VEHICLE.1)%>% #Group by Borough and Contributing Factor
+  summarise(.groups = 'drop')%>% #Summarise the groups
+  filter(BOROUGH !='', CONTRIBUTING.FACTOR.VEHICLE.1 !='' )%>% #Filter out the empty rows
+  drop_na()%>% #Drop na values
+  arrange(desc(CONTRIBUTING.FACTOR.VEHICLE.1)) #Arrange in descending by Contributing factor.
+
+
+```
+
+The following views show us all the contributing factor for accident broken up by respective borough.
+
+### Subtask 4 
+
+Display the number of accidents by each hour of the day
+
+```{r subtask4, echo=FALSE}
+ny$CRASH.TIME = hm(ny$CRASH.TIME) #Convert type to Hour Minute
+
+ny%>%
+  group_by(hour(CRASH.TIME))%>% #Group by only hour
+  summarise(Number_of_Accidents = n()) #Count the values
+  
+
+
+
+```
+
+The following dataset view shows the number of accidents taken place in 24 hrs grouped by each hour.
+
+### Subtask 5 
+
+Show the number of accidents taken place in each month of each year.
+
+```{r subtask5, echo=FALSE, warning=FALSE}
+ny$CRASH.DATE = dmy(ny$CRASH.DATE) #Type conversion
+
+ny%>%
+  group_by(year(CRASH.DATE), month(CRASH.DATE))%>% #Group first by Year and Month
+  summarise(Number_of_Accidents = n(), .groups = 'drop') # Count the number of rows
+
+```
+
+Here we can see the number of accidents happened during each month of a respective year.
+
+### Subtask 6
+
+Present in long format showing Borough in first column, Type of outcome in second column and Injured/Killed in Third column.
+
+```{r subtask6, echo=FALSE}
+
+sub <- ny%>%
+  select( BOROUGH,NUMBER.OF.PERSONS.INJURED, NUMBER.OF.PERSONS.KILLED, NUMBER.OF.PEDESTRIANS.INJURED, NUMBER.OF.PEDESTRIANS.KILLED, NUMBER.OF.CYCLIST.INJURED, NUMBER.OF.CYCLIST.KILLED, NUMBER.OF.MOTORIST.INJURED, NUMBER.OF.MOTORIST.KILLED  ) %>%
+      filter(BOROUGH == 'BROOKLYN', NUMBER.OF.PERSONS.INJURED != '', NUMBER.OF.PERSONS.KILLED !='',  NUMBER.OF.PEDESTRIANS.INJURED !='', NUMBER.OF.PEDESTRIANS.KILLED !='', NUMBER.OF.CYCLIST.INJURED !='', NUMBER.OF.CYCLIST.KILLED !='', NUMBER.OF.MOTORIST.INJURED !='', NUMBER.OF.MOTORIST.KILLED !='')%>%
+drop_na()
+
+sub %>%
+ pivot_longer(
+    cols = NUMBER.OF.PERSONS.INJURED:NUMBER.OF.MOTORIST.KILLED, 
+    names_to = "Type of Outcome", 
+    values_to = "injured/killed",
+    values_drop_na = TRUE
+  )
+
+```
+
+The following long format shows all the data in long format where column 2 has Type of outcome and column 3 shows Injured/Killed 
+
+# Conclusion
+
+1. From task 1 we can say that Los Angeles with	27 tops the city with most no. of farmers market in state of California followed by San Francisco with 20	farmer markets.
+
+2. In Massachusetts year 2016 had the most number of markets at 72.
+
+3. California	with 760, New York with	673 & Michigan with	343 are the top three states in terms of number of farmers market. here we used the slice function to display only the top 15 cities 
+
+4. Used regular express, pivot_longer, NA_if etc to show the view of count of Markets accepting a particular payment for respective product type in a Long Format.
+
+5. We separated the Strings in column Season1Date and combined the new columns with original data using the separate function and bind_cols function.
+
+6. As following -->
+
+A. We calculated all the statistical parameters for column NUMBER.OF.PEDESTRIANS.INJURED using the group_by clause and summaries function, we also used inbuilt R function to calculate (total,mean,median,max,min etc)
+
+B. Displayed the number of accidents segregated by Borough and Vehicle Type code.
+
+C. Showed all the contributing factor for accident broken up by respective borough.
+
+D. Calculated data set view to show the number of accidents taken place in 24 hrs grouped by each hour. by this we can infer that maximum number of accidents happen at 16:00 Hr of the day.
+
+E. Calculated the number of accidents happened during each month of a respective year.
+
+F. Using Pivot_longer function we pivoted the required columns of type of outcome in a single column and displayed the injured/killed in the third column by each borough in first column.
+
+Reference :- 
+https://tidyr.tidyverse.org/reference/pivot_longer.html
+https://dplyr.tidyverse.org/reference/na_if.html
+https://cran.r-project.org/web/packages/stringr/vignettes/regular-expressions.html
+https://stackoverflow.com/questions/2547402/how-to-find-the-statistical-mode
